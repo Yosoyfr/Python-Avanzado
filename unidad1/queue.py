@@ -61,6 +61,7 @@ class Queue:
 
 
 # Crear una cola
+'''
 cola = Queue(5)
 
 cola.enqueue(1)
@@ -81,3 +82,4 @@ elemento = cola.dequeue()
 print(cola.q)
 
 print('El tamaño de la cola es...', cola.size())
+'''
