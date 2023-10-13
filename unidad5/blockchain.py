@@ -1,30 +1,36 @@
 from hashlib import sha256
 import json
-import time
+from time import time
+
 
 '''
-Las transacciones se empaquetan en bloques en lotes y un bloque
-puede contener una o más transacciones. Los bloques que contienen
-transacciones se generan y agregan regularmente a la cadena de bloques.
-Debido a que hay muchos bloques, cada bloque debe tener una identificación única.
+Las transacciones - Son empaquetadas en los bloques en forma de lote y un bloque
+puede contener una o mas transacciones. Los bloques que contienen transacciones se
+generan y agregan regularmente (periodicamente) a la cadena de bloques. Debido
+a que hay muchos bloques, cada bloque debe tener una identificacion unica.
 '''
+
+
+'''Block'''
 
 
 class Block:
-    def __init__(self, index, transactions, timestamp, previuos_hash, nonce=0):
-        """
-        Constructor para la clase `Block`.
-        :param index:         ID único del bloque.
-        :param transactions:  Lista de transacciones.
-        :param timestamp:     Hora de generación del bloque.
-        :param previous_hash: Hash del bloque anterior en la cadena de la que forma parte este bloque.
-        :param nonce: El valor de nonce en este punto es nuestra prueba de carga de trabajo.
-        """
+    '''
+    Constructor (Inicializador) para la clase "Block"
+    :param - index:         ID unico del bloque
+    :param - transactions:  Lista de transacciones
+    :param - timestamp:     Hora de generacion del bloque
+    :param - previous_hash: Hash del bloque anterior en la cadena
+    :param - nonce:         El valor de nonce en este punto es nuestra prueba de carga de trabajo
+    '''
+
+    def __init__(self, index, transactions, timestamp, previous_hash, _nonce=0) -> None:
         self.index = index
         self.transactions = transactions
         self.timestamp = timestamp
-        self.previous_hash = previuos_hash
-        self.nonce = nonce
+        self.previous_hash = previous_hash
+        self.nonce = _nonce
+        self.hash = ""
 
     '''
     La función hash puede convertir cualquier tamaño de datos de entrada en datos de salida de tamaño fijo,
@@ -39,7 +45,7 @@ class Block:
 
     De esta forma podemos garantizar:
 
-        - Es básicamente imposible adivinar cuáles son los datos de entrada del hash, la única
+        - Es básicamente imposible adivinar saber cuáles son los datos de entrada del hash, la única
           forma es probar todas las combinaciones posibles
         - Si conoce la entrada y la salida al mismo tiempo, puede verificar que el hash sea correcto
           simplemente recalculando
@@ -49,11 +55,21 @@ class Block:
     '''
 
     def compute_hash(self):
-        """
-        Devuelve el hash de la instancia del bloque convirtiendolo primero en una cadena JSON.
-        """
+        '''
+        Devuelve el hash de la instancia del bloque convirtiendo primero en una cadena JSON.
+        '''
         block_string = json.dumps(self.__dict__, sort_keys=True)
         return sha256(block_string.encode()).hexdigest()
+
+    def __str__(self) -> str:
+        return str({
+            "index": self.index,
+            "transactions": self.transactions,
+            "timestamp": self.timestamp,
+            "previous_hash": self.previous_hash,
+            "hash": self.hash,
+            "nonce": self.nonce
+        })
 
 
 '''
@@ -88,33 +104,19 @@ Ahora, si se modifica algún bloque anterior, entonces:
 
 
 class Blockchain:
-    difficulty = 2  # dificultad del algoritmo PoW
+    '''
+    Constructor (Inicializador) para la clase Blockchain
+    :param - chain:                     Cadena de Bloques
+    :param - unconfirmed_transactions:  Las transacciones que no han sido confirmadas
+    -------------------------------------------------------------------------------------
+    :param - difficulty:                La cantidad de 0 que se requieren para validad un Hash
+    '''
+    __difficulty = 2
 
-    def __init__(self):
-        """
-        Constructor para la clase Blockchain
-        """
+    def __init__(self) -> None:
         self.chain = []
         self.unconfirmed_transactions = []
         self.create_genesis_block()
-
-    def create_genesis_block(self):
-        """
-        Una función para generar un bloque de génesis y lo agrega a
-        la cadena. El bloque tiene índice 0, anterior_hash como 0 y
-        un hash válido.
-        """
-        genesis_block = Block(0, [], time.time(), '0')
-        genesis_block.hash = self.proof_of_work(genesis_block)
-        self.chain.append(genesis_block)
-
-    @property
-    def last_block(self):
-        """
-        Una forma rápida de recuperar el bloque más reciente de la cadena. Tenga en cuenta que
-        a cadena siempre constará de al menos un bloque (es decir, bloque de génesis)
-        """
-        return self.chain[-1]
 
     '''
     Existe un problema más. Si modificamos el bloque anterior, y si es muy fácil recalcular 
@@ -126,18 +128,38 @@ class Blockchain:
     '''
 
     def proof_of_work(self, block):
-        """
+        '''
         Funcion que prueba diferentes valores del nonce para obtener un hash
         que satisfaga nuestros criterios de dificultad
-        """
+        '''
         block.nonce = 0
-        print("Nonce inicial:", block.nonce)
+        # print("Nonce inicial:", block.nonce)
         computed_hash = block.compute_hash()
-        while not computed_hash.startswith('0' * Blockchain.difficulty):
+        while not computed_hash.startswith('0'*self.__difficulty):
             block.nonce += 1
             computed_hash = block.compute_hash()
-        print("Nonce final:", block.nonce)
+        # print("Nonce final:", block.nonce)
+        # print("Hash generado:", computed_hash)
         return computed_hash
+
+    '''
+        Una función para generar un bloque de génesis y lo agrega a
+        la cadena. El bloque tiene índice 0, anterior_hash como 0 y
+        un hash válido.
+    '''
+
+    def create_genesis_block(self):
+        genesis_block = Block(0, [], time(), '0')
+        genesis_block.hash = self.proof_of_work(genesis_block)
+        self.chain.append(genesis_block)
+
+    '''
+        Una forma rápida de recuperar el bloque más reciente de la cadena. Tenga en cuenta que
+        la cadena siempre constará de al menos un bloque (es decir, bloque de génesis)
+    '''
+    @property
+    def last_block(self):
+        return self.chain[-1]
 
     '''
     El proceso anterior es una versión simplificada del algoritmo hashcash utilizado por Bitcoin. 
@@ -152,32 +174,33 @@ class Blockchain:
     satisfaga las restricciones, por lo que solo se pueden realizar cálculos de fuerza bruta.
     '''
 
-    def is_valid_proof(self, block, block_hash):
-        """
-        Comprueba si block_hash es un hash de bloque valido y cumple los criterios de dificultad
-        """
-        return (block_hash.startswith('0' * Blockchain.difficulty) and block_hash == block.compute_hash())
+    def is_valid_proof(self, block, block_hash) -> bool:
+        '''
+            Comprobar si block_hash es un hash de bloque valido y que cumple con los criterios de dificultad
+        '''
+        verification = (block_hash.startswith('0'*self.__difficulty)
+                        and block_hash == block.compute_hash())
+        return verification
 
     '''
-    Para agregar un bloque a la cadena de bloques, primero debemos verificar:
-
-        - Los datos del bloque no han sido alterados y la prueba de trabajo proporcionada 
-          es correcta.
-        - El orden de las transacciones es correcto y el campo previous_hash apunta al 
-          hash del último bloque de nuestra cadena.
+        Una funcion que agrega el bloque a la cadena despues de la verificacion.
+        La verificacion:
+            - Comprobacion de si la prueba de trabajo es valida.
+            - El previous_hash referido en el bloque y el hash del ultimo bloque de la cadena
+              deberian ser iguales.
     '''
 
-    def add_block(self, block, proof):
-        """
-        Una función que agrega el bloque a la cadena después de la verificación.
-        La verificación incluye:
-        * Comprobación de si la prueba es válida.
-        * El anterior_hash referido en el bloque y el hash de un último bloque
-          en el partido de la cadena.
-        """
-        previos_hash = self.last_block.hash
+    def add_block(self, block, proof) -> bool:
+        '''
+        Para agregar un bloque a la cadena de bloques, primero debemos verificar:
+            - El orden de las transacciones es correcto y el campo previous_hash apunta al 
+                hash del último bloque de nuestra cadena.
+            - Los datos del bloque no han sido alterados y la prueba de trabajo proporcionada 
+            es correcta.
+        '''
+        previous_hash = self.last_block.hash
 
-        if previos_hash != block.previous_hash:
+        if previous_hash != block.previous_hash:
             return False
 
         if not self.is_valid_proof(block, proof):
@@ -188,64 +211,126 @@ class Blockchain:
         return True
 
     '''
-    Las transacciones se almacenan inicialmente en el grupo de transacciones no confirmadas. 
-    El proceso de poner transacciones no confirmadas en bloques y calcular la prueba de 
-    trabajo se conoce como minería. Una vez que se encuentra el nonce que cumple con las 
-    restricciones especificadas, podemos decir que se ha excavado un bloque que se puede 
-    encadenar.
+        Las transacciones se almacenan inicialmente en el grupo de transacciones no confirmadas. 
+        El proceso de poner transacciones no confirmadas en bloques y calcular la prueba de 
+        trabajo se conoce como minería. Una vez que se encuentra el nonce que cumple con las 
+        restricciones especificadas, podemos decir que se ha minado un bloque que se puede 
+        encadenar.
 
-    En la mayoría de las criptomonedas digitales, incluido Bitcoin, los mineros recibirán 
-    recompensas en criptomonedas a cambio de la potencia informática invertida en la prueba 
-    de trabajo.
+        En la mayoría de las criptomonedas digitales, incluido Bitcoin, los mineros recibirán 
+        recompensas en criptomonedas a cambio de la potencia informática invertida en la prueba 
+        de trabajo.
     '''
 
     def add_new_transaction(self, transaction):
         self.unconfirmed_transactions.append(transaction)
 
-    def mine(self):
-        """
-        Esta función sirve como interfaz para agregar los pendientes
-        transacciones a la cadena de bloques agregándolas al bloque
+    ''' 
+        Esta función sirve como interfaz para agregar las pendientes
+        transacciones a la cadena de bloques agregándolas a un bloque
         y averiguar la prueba de trabajo.
-        """
+    '''
 
-        if not self.unconfirmed_transactions:
+    def mine(self):
+
+        if len(self.unconfirmed_transactions) == 0:
             return False
 
         last_block = self.last_block
 
         new_block = Block(index=last_block.index+1,
                           transactions=self.unconfirmed_transactions,
-                          timestamp=time.time(),
-                          previuos_hash=last_block.hash)
+                          timestamp=time(),
+                          previous_hash=last_block.hash)
 
+        print("Minando.....")
         proof = self.proof_of_work(new_block)
-        print("Minando")
+
         print("previous_hash:", last_block.hash)
         print("proof:", proof)
 
-        self.add_block(block=new_block, proof=proof)
+        is_valid = self.add_block(block=new_block, proof=proof)
+
+        if not is_valid:
+            print("Bloque no fue agregado")
+            return False
+
+        print("Bloque agregado con exito.")
         self.unconfirmed_transactions = []
-        return new_block.index
+        return True
+
+    '''
+        Es un metodo auxiliar para verificar si toda la cadena de bloques es valida.
+    '''
 
     def check_chain_validity(self, chain):
-        """
-        Un método auxiliar para verificar si toda la cadena de bloques es válida.          
-        """
         result = True
-        previos_hash = '0'
+        previous_hash = '0'
 
-        # Iterar a traves de toda la cadena
+        # Iterar bloques a traves de toda la cadena de bloques
         for block in chain:
             block_hash = block.hash
-            # Eliminar el campo hash para volver a calcular el hash nuevamente
-            delattr(block, "hash")
-            print(block.previous_hash)
 
-            if not self.is_valid_proof(block, block_hash) or previos_hash != block.previous_hash:
+            # Eliminar el campo hash para volver a calcular el hash nuevamente
+            block.hash = ""
+
+            if not self.is_valid_proof(block, block_hash) or previous_hash != block.previous_hash:
                 result = False
                 break
 
-            block.hash, previos_hash = block_hash, block_hash
+            block.hash, previous_hash = block_hash, block_hash
 
         return result
+
+
+# Nodo 1
+blockchain1 = Blockchain()
+# Bloque Genesis:
+genesis_block = blockchain1.last_block
+print("Genesis Block:", genesis_block)
+print("========================= Genesis Block ======================")
+
+# Agregar transacciones no confirmadas - Primer proceso
+# Estructura de la transaccion => {"wallet": int, "amount": float}
+blockchain1.add_new_transaction({"wallet": 1, "amount": 100})
+blockchain1.add_new_transaction({"wallet": 1, "amount": 50})
+blockchain1.add_new_transaction({"wallet": 2, "amount": 40})
+blockchain1.add_new_transaction({"wallet": 3, "amount": 10})
+print("========================= 1er Proceso ======================")
+
+unconfirmed_transactions = blockchain1.unconfirmed_transactions
+print("Transacciones no confirmadas:", unconfirmed_transactions)
+print("========================= 1er Proceso ======================")
+
+# Mineria - Primer proceso
+blockchain1.mine()
+last_block = blockchain1.last_block
+print("Ultimo bloque generado:", last_block)
+print("========================= 1er Proceso ======================")
+
+# Agregar transacciones no confirmadas - Segundo proceso
+# Estructura de la transaccion => {"wallet": int, "amount": float}
+blockchain1.add_new_transaction({"wallet": 5, "amount": 100})
+blockchain1.add_new_transaction({"wallet": 4, "amount": 50})
+blockchain1.add_new_transaction({"wallet": 10, "amount": 40})
+blockchain1.add_new_transaction({"wallet": 20, "amount": 10})
+print("========================= 2do Proceso ======================")
+
+unconfirmed_transactions = blockchain1.unconfirmed_transactions
+print("Transacciones no confirmadas:", unconfirmed_transactions)
+print("========================= 2do Proceso ======================")
+
+# Mineria - Segundo proceso
+blockchain1.mine()
+last_block = blockchain1.last_block
+print("Ultimo bloque generado:", last_block)
+print("========================= 2do Proceso ======================")
+
+# Nodo 2
+blockchain2 = blockchain1
+
+print("========================= Check Chain Validity ======================")
+# Validacion de cadena de bloques (blockchain2 -> blockchain1)
+is_valid = blockchain1.check_chain_validity(blockchain2.chain)
+print("El resulta es: ", is_valid)
+print("========================= Check Chain Validity ======================")
